@@ -92,7 +92,11 @@ class MAML:
 
                 if self.classification:
                     task_accuraciesb = []
-
+                
+                ## FIX THIS
+                fast_weights = tf.transpose(weights['w5'])(tf.matmul(weights['w5'],tf.transpose(weights['w5'])) + tweights['lambda'])
+                
+                
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
                 task_lossa = self.loss_func(task_outputa, labela)
                 
@@ -194,26 +198,6 @@ class MAML:
                 tf.summary.scalar(prefix+'Post-update accuracy, step ' + str(j+1), total_accuracies2[j])
 
     ### Network construction functions
-    ## not CNN
-    # only used for sinusoid, and for non convolutional DNN on image datasets.
-    def construct_fc_weights(self):
-        weights = {}
-        weights['w1'] = tf.Variable(tf.truncated_normal([self.dim_input, self.dim_hidden[0]], stddev=0.01))
-        weights['b1'] = tf.Variable(tf.zeros([self.dim_hidden[0]]))
-        for i in range(1,len(self.dim_hidden)):
-            weights['w'+str(i+1)] = tf.Variable(tf.truncated_normal([self.dim_hidden[i-1], self.dim_hidden[i]], stddev=0.01))
-            weights['b'+str(i+1)] = tf.Variable(tf.zeros([self.dim_hidden[i]]))
-        weights['w'+str(len(self.dim_hidden)+1)] = tf.Variable(tf.truncated_normal([self.dim_hidden[-1], self.dim_output], stddev=0.01))
-        weights['b'+str(len(self.dim_hidden)+1)] = tf.Variable(tf.zeros([self.dim_output]))
-        return weights
-    
-    # only used for sinusoid, and for non convolutional DNN on image datasets.
-    def forward_fc(self, inp, weights, reuse=False):
-        hidden = normalize(tf.matmul(inp, weights['w1']) + weights['b1'], activation=tf.nn.relu, reuse=reuse, scope='0')
-        for i in range(1,len(self.dim_hidden)):
-            hidden = normalize(tf.matmul(hidden, weights['w'+str(i+1)]) + weights['b'+str(i+1)], activation=tf.nn.relu, reuse=reuse, scope=str(i+1))
-        return tf.matmul(hidden, weights['w'+str(len(self.dim_hidden)+1)]) + weights['b'+str(len(self.dim_hidden)+1)]
-    
     ## CNN
     # initialize and return weights for CNN
     def construct_conv_weights(self):
@@ -224,6 +208,7 @@ class MAML:
         fc_initializer =  tf.contrib.layers.xavier_initializer(dtype=dtype)
         k = 3
 
+        # CNN weights
         weights['conv1'] = tf.get_variable('conv1', [k, k, self.channels, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
         weights['b1'] = tf.Variable(tf.zeros([self.dim_hidden]))
         weights['conv2'] = tf.get_variable('conv2', [k, k, self.dim_hidden, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
@@ -232,20 +217,22 @@ class MAML:
         weights['b3'] = tf.Variable(tf.zeros([self.dim_hidden]))
         weights['conv4'] = tf.get_variable('conv4', [k, k, self.dim_hidden, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
         weights['b4'] = tf.Variable(tf.zeros([self.dim_hidden]))
-        if FLAGS.datasource == 'miniimagenet':
-            # assumes max pooling
-            weights['w5'] = tf.get_variable('w5', [self.dim_hidden*5*5, self.dim_output], initializer=fc_initializer)
-            weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
-        elif FLAGS.datasource == 'cifarfs':
-            # assumes max pooling
-            weights['w5'] = tf.get_variable('w5', [self.dim_hidden*2*2, self.dim_output], initializer=fc_initializer)
-            weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
-        else:
-            weights['w5'] = tf.Variable(tf.random_normal([self.dim_hidden, self.dim_output]), name='w5')
-            weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
+        
+        # LR weights
+        # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
+        flat_dim = self.dim_hidden*2*2 #???
+        weights['w5'] = tf.get_variable('w5', [flat_dim, self.dim_output], initializer=fc_initializer)
+        
+        # hyper parameters of base learner, to be learnt in outer loop together with CNN parameters
+        weights['lambda'] = tf.get_variable('lambda', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
+        weights['alpha'] = tf.get_variable('alpha',initializer=tf.constant(1., dtype=dtype), dtype=dtype)
+        weights['beta'] = tf.get_variable('beta', initializer=tf.constant(0., dtype=dtype), dtype=dtype)
+        #weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
+
         return weights
 
     # return output of input image, with weights given as argument!
+    # This is only to be used in the meta-learning step, during base training the direct solution for LR is used!
     def forward_conv(self, inp, weights, reuse=False, scope=''):
         # reuse is for the normalization parameters.
         channels = self.channels
@@ -255,12 +242,14 @@ class MAML:
         hidden2 = conv_block(hidden1, weights['conv2'], weights['b2'], reuse, scope+'1')
         hidden3 = conv_block(hidden2, weights['conv3'], weights['b3'], reuse, scope+'2')
         hidden4 = conv_block(hidden3, weights['conv4'], weights['b4'], reuse, scope+'3')
-        if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-            # last hidden layer is 6x6x64-ish, reshape to a vector
-            hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
-        else:
-            hidden4 = tf.reduce_mean(hidden4, [1, 2])
+        
+        # Flattening of blocks 3 and 4
+        hidden3 = tf.reshape(hidden3, [-1, np.prod([int(dim) for dim in hidden3.get_shape()[1:]])])
+        hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
+        
+        # pushing through Linear Regression part
+        flatconcat34 = tf.concat([hidden3, hidden4])
 
-        return tf.matmul(hidden4, weights['w5']) + weights['b5']
+        return weights['alpha'] * tf.matmul(inp, weights['w5']) + weights['beta']
 
 
