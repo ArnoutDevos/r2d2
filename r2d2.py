@@ -14,8 +14,10 @@ from utils import mse, xent, conv_block, normalize
 
 FLAGS = flags.FLAGS
 
-class MAML:
+class R2D2:
     def __init__(self, dim_input=1, dim_output=1, test_num_updates=5):
+        #tf.reset_default_graph()
+        
         """ must call construct_model() after initializing MAML! """
         self.dim_input = dim_input
         self.dim_output = dim_output
@@ -93,27 +95,28 @@ class MAML:
                 if self.classification:
                     task_accuraciesb = []
                 
-                ## FIX THIS
-                fast_weights = tf.transpose(weights['w5'])(tf.matmul(weights['w5'],tf.transpose(weights['w5'])) + tweights['lambda'])
-                
-                
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
                 task_lossa = self.loss_func(task_outputa, labela)
                 
-                # MAML line 5: evaluate grads on train set (a)
-                grads = tf.gradients(task_lossa, list(weights.values()))
-                if FLAGS.stop_grad:
-                    grads = [tf.stop_gradient(grad) for grad in grads]
-                gradients = dict(zip(weights.keys(), grads))
+                ## Pass through CNN
+                x = self.forward_conv_CNN(inputa, weights, reuse=True)                
                 
-                # MAML line 6: compute updates (adapted parameters)
-                fast_weights = dict(zip(weights.keys(), [weights[key] - self.update_lr*gradients[key] for key in weights.keys()]))
+                ## Linear Regression with Woodbury Identity
+                # using training set (a) to determine new weights for linear regressor
+                xT = tf.transpose(x)
+                xxT = tf.matmul(x,xT)
                 
-                # MAML line 8: calculate output/loss on test set (b)
+                # Calculate new LINEAR REGRESSION weights on train set, using the Woodbury identity
+                fast_weights = dict(zip(weights.keys(), [weights[key] for key in weights.keys()]))
+                fast_weights['stop_w5'] = tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela)
+                
+                # MAML line 8: calculate output/loss on test set (b), internally does LR conversion with scale alpha and bias beta
                 output = self.forward(inputb, fast_weights, reuse=True)
                 task_outputbs.append(output)
                 task_lossesb.append(self.loss_func(output, labelb))
-
+                
+                # NO (further) INNER STEPS REQUIRED FOR LINEAR REGRESSION
+                """
                 for j in range(num_updates - 1):
                     loss = self.loss_func(self.forward(inputa, fast_weights, reuse=True), labela)
                     
@@ -130,13 +133,12 @@ class MAML:
                     output = self.forward(inputb, fast_weights, reuse=True)
                     task_outputbs.append(output)
                     task_lossesb.append(self.loss_func(output, labelb))
-
+                """
                 task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb]
 
                 if self.classification:
                     task_accuracya = tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputa), 1), tf.argmax(labela, 1))
-                    for j in range(num_updates):
-                        task_accuraciesb.append(tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputbs[j]), 1), tf.argmax(labelb, 1)))
+                    task_accuraciesb.append(tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputbs[0]), 1), tf.argmax(labelb, 1)))
                     task_output.extend([task_accuracya, task_accuraciesb])
 
                 return task_output
@@ -174,9 +176,12 @@ class MAML:
                 # Compute gradients after num_updates
                 self.gvs = gvs = optimizer.compute_gradients(self.total_losses2[FLAGS.num_updates-1])
                 
+                #grads = tf.gradients(loss, list(fast_weights.values()))
+                #grads = [tf.stop_gradient(grad) for grad in gvs]
+                
                 # Gradients are clipped by [-10,10] to avoid explosion?
                 if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-                    gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs]
+                    gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs if grad is not None]
                     
                 # update parameters
                 self.metatrain_op = optimizer.apply_gradients(gvs)
@@ -218,15 +223,24 @@ class MAML:
         weights['conv4'] = tf.get_variable('conv4', [k, k, self.dim_hidden, self.dim_hidden], initializer=conv_initializer, dtype=dtype)
         weights['b4'] = tf.Variable(tf.zeros([self.dim_hidden]))
         
-        # LR weights
+        # RR weights
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
         flat_dim = self.dim_hidden*2*2 #???
-        weights['w5'] = tf.get_variable('w5', [flat_dim, self.dim_output], initializer=fc_initializer)
+        flat_dim = 640 # cifar-fs paper number
+        
+        
+        weights['stop_w5'] = tf.get_variable('stop_w5', [flat_dim, self.dim_output], initializer=fc_initializer)
         
         # hyper parameters of base learner, to be learnt in outer loop together with CNN parameters
-        weights['lambda'] = tf.get_variable('lambda', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
-        weights['alpha'] = tf.get_variable('alpha',initializer=tf.constant(1., dtype=dtype), dtype=dtype)
-        weights['beta'] = tf.get_variable('beta', initializer=tf.constant(0., dtype=dtype), dtype=dtype)
+        #weights['lr_lambda'] = tf.get_variable('lr_lambda', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
+        #weights['lr_alpha'] = tf.get_variable('lr_alpha',initializer=tf.constant(1., dtype=dtype), dtype=dtype)
+        #weights['lr_beta'] = tf.get_variable('lr_beta', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
+        
+        weights['lr_lambda'] = tf.Variable(tf.zeros(1, dtype = dtype))
+        weights['lr_alpha'] = tf.Variable(tf.zeros(1, dtype = dtype))
+        weights['lr_beta'] = tf.Variable(tf.zeros(1, dtype = dtype))
+        
+        
         #weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
 
         return weights
@@ -234,6 +248,12 @@ class MAML:
     # return output of input image, with weights given as argument!
     # This is only to be used in the meta-learning step, during base training the direct solution for LR is used!
     def forward_conv(self, inp, weights, reuse=False, scope=''):
+        out = self.forward_conv_CNN(inp, weights, reuse=reuse, scope=scope)
+        out = self.forward_conv_lr(out, weights, reuse=reuse, scope=scope)
+        
+        return out
+    
+    def forward_conv_CNN(self, inp, weights, reuse=False, scope=''):
         # reuse is for the normalization parameters.
         channels = self.channels
         inp = tf.reshape(inp, [-1, self.img_size, self.img_size, channels])
@@ -247,9 +267,12 @@ class MAML:
         hidden3 = tf.reshape(hidden3, [-1, np.prod([int(dim) for dim in hidden3.get_shape()[1:]])])
         hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
         
-        # pushing through Linear Regression part
-        flatconcat34 = tf.concat([hidden3, hidden4])
-
-        return weights['alpha'] * tf.matmul(inp, weights['w5']) + weights['beta']
+        # Concatenate 
+        flatconcat34 = tf.concat([hidden3, hidden4], axis=1) # keep batched (axis 0), concatenate columns (axis 1)
+        
+        return flatconcat34
+        
+    def forward_conv_lr(self, inp, weights, reuse=False, scope=''):
+        return tf.multiply(weights['lr_alpha'],tf.matmul(inp, weights['stop_w5'])) + tf.multiply(weights['lr_beta'],tf.ones(shape=[inp.get_shape()[0], weights['stop_w5'].get_shape()[1]], dtype=tf.float32))
 
 

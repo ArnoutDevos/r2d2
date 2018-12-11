@@ -37,7 +37,8 @@ import random
 import tensorflow as tf
 
 from data_generator import DataGenerator
-from maml import MAML
+from r2d2 import R2D2
+#from maml import MAML
 from tensorflow.python.platform import flags
 
 FLAGS = flags.FLAGS
@@ -235,11 +236,15 @@ def main():
         else:
             test_num_updates = 10 # During meta-testing 10 updates are used
     else:
+        """
         if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
             if FLAGS.train == True:
                 test_num_updates = 1  # eval on at least one update during training
             else:
                 test_num_updates = 10 # eval on 10 updates during testing
+        """
+        if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
+                test_num_updates = 1 # eval on 10 updates during training and testing
         else:
             test_num_updates = 10 # Omniglot gets 10 updates during training AND testing
 
@@ -302,7 +307,7 @@ def main():
         tf_data_load = False
         input_tensors = None
 
-    model = MAML(dim_input, dim_output, test_num_updates=test_num_updates) # test_num_updates = eval on at least one update for training, 10 testing
+    model = R2D2(dim_input, dim_output, test_num_updates=test_num_updates) # test_num_updates = eval on at least one update for training, 10 testing
     if FLAGS.train or not tf_data_load:
         model.construct_model(input_tensors=input_tensors, prefix='metatrain_')
     if tf_data_load:

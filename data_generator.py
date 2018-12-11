@@ -7,6 +7,8 @@ import tensorflow as tf
 from tensorflow.python.platform import flags
 from utils import get_images
 
+import pickle
+
 FLAGS = flags.FLAGS
 
 class DataGenerator(object):
@@ -114,14 +116,35 @@ class DataGenerator(object):
         # make list of files
         print('Generating filenames')
         all_filenames = []
-        for _ in range(num_total_batches):
-            sampled_character_folders = random.sample(folders, self.num_classes)
-            random.shuffle(sampled_character_folders)
-            labels_and_images = get_images(sampled_character_folders, range(self.num_classes), nb_samples=self.num_samples_per_class, shuffle=False)
-            # make sure the above isn't randomized order
-            labels = [li[0] for li in labels_and_images]
-            filenames = [li[1] for li in labels_and_images]
-            all_filenames.extend(filenames)
+        
+        
+        
+        filename_list_pkl = "Filenames_" + str(FLAGS.datasource) + "_Train" + str(train) + ".pkl"
+        label_list_pkl = "Labels_" + str(FLAGS.datasource) + "_Train" + str(train) + ".pkl"
+        
+        if os.path.isfile(filename_list_pkl) and os.path.isfile(label_list_pkl):
+            # Filenames list exists already, load from pickle
+            with open(filename_list_pkl, 'rb') as f:
+                all_filenames = pickle.load(f)
+                
+            with open(label_list_pkl, 'rb') as f:
+                labels = pickle.load(f)
+        else:
+            # Filenames list is not saved yet in file, generate filenames list and save to file
+            for _ in range(num_total_batches):
+                sampled_character_folders = random.sample(folders, self.num_classes)
+                random.shuffle(sampled_character_folders)
+                labels_and_images = get_images(sampled_character_folders, range(self.num_classes), nb_samples=self.num_samples_per_class, shuffle=False)
+                # make sure the above isn't randomized order
+                labels = [li[0] for li in labels_and_images]
+                filenames = [li[1] for li in labels_and_images]
+                all_filenames.extend(filenames)
+                
+            with open(filename_list_pkl, 'wb') as f:
+                pickle.dump(all_filenames, f)
+                
+            with open(label_list_pkl, 'wb') as f:
+                pickle.dump(labels, f)
 
         # make queue for tensorflow to read from
         filename_queue = tf.train.string_input_producer(tf.convert_to_tensor(all_filenames), shuffle=False)
@@ -161,7 +184,10 @@ class DataGenerator(object):
                 # omniglot augments the dataset by rotating digits to create new classes
                 # get rotation per class (e.g. 0,1,2,0,0 if there are 5 classes)
                 rotations = tf.multinomial(tf.log([[1., 1.,1.,1.]]), self.num_classes)
+                
+            #??? need to compare with MAML, this looks wrong
             label_batch = tf.convert_to_tensor(labels)
+            # label_batch = tf.convert_to_tensor(labels[i*examples_per_batch:(i+1)*examples_per_batch])
             new_list, new_label_list = [], []
             for k in range(self.num_samples_per_class):
                 class_idxs = tf.range(0, self.num_classes)
