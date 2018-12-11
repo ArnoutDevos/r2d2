@@ -19,10 +19,10 @@ After 60,000 iterations, with a 95% confidence interval, and 10 finetune steps:
 
 | Dataset, method | this code<br />accuracy | reported by<br /> R2D2 [2] |
 | ------------- | :---------------------: | :-----------: |
-| CIFAR-FS, R2D2 5-way, 1-shot |             | 58.9 ± 1.9% |
-| CIFAR-FS, R2D2 5-way, 5-shot |             | 71.5 ± 1.0% |
-| CIFAR-FS, R2D2 2-way, 1-shot |             | 82.8 ± 2.7% |
-| CIFAR-FS, R2D2 2-way, 5-shot |             | 88.3 ± 1.1% |
+| CIFAR-FS, R2D2 5-way, 1-shot |             | 61.5 ± 0.7% |
+| CIFAR-FS, R2D2 5-way, 5-shot |             | 76.7 ± 0.6% |
+| CIFAR-FS, R2D2 2-way, 1-shot |             | 83.4 ± 0.3% |
+| CIFAR-FS, R2D2 2-way, 5-shot |             | 91.1 ± 0.2% |
 
 ### References
 
