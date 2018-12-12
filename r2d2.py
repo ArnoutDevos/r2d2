@@ -80,7 +80,7 @@ class R2D2:
                 self.weights = weights = self.construct_weights()
 
             # outputbs[i] and lossesb[i] is the output and loss after i+1 gradient updates
-            lossesa, outputas, lossesb, outputbs = [], [], [], []
+            lossesa, outputas, lossesb, outputbs, labelas, labelbs = [], [], [], [], [], []
             accuraciesa, accuraciesb = [], []
             num_updates = max(self.test_num_updates, FLAGS.num_updates)
             outputbs = [[]]*num_updates
@@ -108,7 +108,7 @@ class R2D2:
                 
                 # Calculate new LINEAR REGRESSION weights on train set, using the Woodbury identity
                 fast_weights = dict(zip(weights.keys(), [weights[key] for key in weights.keys()]))
-                fast_weights['stop_w5'] = tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela)
+                fast_weights['stop_w5'] = tf.stop_gradient(tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela))
                 
                 # MAML line 8: calculate output/loss on test set (b), internally does LR conversion with scale alpha and bias beta
                 output = self.forward(inputb, fast_weights, reuse=True)
@@ -138,7 +138,8 @@ class R2D2:
 
                 if self.classification:
                     task_accuracya = tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputa), 1), tf.argmax(labela, 1))
-                    task_accuraciesb.append(tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputbs[0]), 1), tf.argmax(labelb, 1)))
+                    for j in range(num_updates):
+                        task_accuraciesb.append(tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputbs[j]), 1), tf.argmax(labelb, 1)))
                     task_output.extend([task_accuracya, task_accuraciesb])
 
                 return task_output
@@ -164,6 +165,7 @@ class R2D2:
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
             # after the map_fn
             self.outputas, self.outputbs = outputas, outputbs
+            #self.labelas, self.labelbs = outputas, outputbs
             if self.classification:
                 self.total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
                 self.total_accuracies2 = total_accuracies2 = [tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
@@ -191,6 +193,16 @@ class R2D2:
             if self.classification:
                 self.metaval_total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
                 self.metaval_total_accuracies2 = total_accuracies2 =[tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
+                
+                # For diagnostic purposes
+                self.test_accuraciesa = accuraciesa
+                self.test_accuraciesb = [accuraciesb[j] for j in range(num_updates)]
+                
+                self.test_outputas = outputas
+                self.test_outputbs = outputbs
+                
+                self.labelas = self.labela
+                self.labelbs = self.labelb
 
         ## Summaries
         tf.summary.scalar(prefix+'Pre-update loss', total_loss1)
@@ -225,8 +237,12 @@ class R2D2:
         
         # RR weights
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
-        flat_dim = self.dim_hidden*2*2 #???
-        flat_dim = 640 # cifar-fs paper number
+        flat_dim = 640
+        if FLAGS.datasource == 'miniimagenet': # 84x84 * (1/2 + 1/2/2/2)
+            flat_dim = 4000
+        else:# cifarfs 32x32 * (1/2 + 1/2/2/2) = 640
+            flat_dim = 640 
+        
         
         
         weights['stop_w5'] = tf.get_variable('stop_w5', [flat_dim, self.dim_output], initializer=fc_initializer)
@@ -273,6 +289,7 @@ class R2D2:
         return flatconcat34
         
     def forward_conv_lr(self, inp, weights, reuse=False, scope=''):
-        return tf.multiply(weights['lr_alpha'],tf.matmul(inp, weights['stop_w5'])) + tf.multiply(weights['lr_beta'],tf.ones(shape=[inp.get_shape()[0], weights['stop_w5'].get_shape()[1]], dtype=tf.float32))
+        W = tf.stop_gradient(weights['stop_w5']) # stop backpropagation to CNN weights through RR calculation
+        return tf.multiply(weights['lr_alpha'],tf.matmul(inp, W)) + tf.multiply(weights['lr_beta'],tf.ones(shape=[inp.get_shape()[0], self.dim_output], dtype=tf.float32))
 
 

@@ -184,12 +184,13 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
     random.seed(1)
 
     metaval_accuracies = []
+    metaval_labels = []
 
-    for _ in range(NUM_TEST_POINTS):
+    for _ in range(NUM_TEST_POINTS): # NUM_TEST_POINTS = amount of test tasks
         if 'generate' not in dir(data_generator):
             feed_dict = {}
             feed_dict = {model.meta_lr : 0.0}
-        else:
+        else: # for sinusoid
             batch_x, batch_y, amp, phase = data_generator.generate(train=False)
 
             if FLAGS.baseline == 'oracle': # NOTE - this flag is specific to sinusoid
@@ -203,20 +204,31 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             labelb = batch_y[:,num_classes*FLAGS.update_batch_size:, :]
 
             feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
-
+        """
         if model.classification:
+            #result = sess.run([model.test_accuraciesa] + model.test_accuraciesb, feed_dict)
             result = sess.run([model.metaval_total_accuracy1] + model.metaval_total_accuracies2, feed_dict)
         else:  # this is for sinusoid
-            result = sess.run([model.total_loss1] +  model.total_losses2, feed_dict)
+            result = sess.run([model.metaval_total_loss1] +  model.metaval_total_losses2, feed_dict)
         metaval_accuracies.append(result)
+        """
+        result = sess.run([model.test_outputas] + model.test_outputbs, feed_dict)
+        labelas, labelbs = sess.run([model.labelas, model.labelbs], feed_dict)
+        metaval_accuracies.append(result)
+        metaval_labels.append([labelas, labelbs])
 
-    metaval_accuracies = np.array(metaval_accuracies)
+    #metaval_accuracies = np.array(metaval_accuracies)
+    metaval_accuracies = np.array(metaval_accuracies[500])
+    metaval_labels = np.array(metaval_labels[500])
+    
     means = np.mean(metaval_accuracies, 0)
     stds = np.std(metaval_accuracies, 0)
     ci95 = 1.96*stds/np.sqrt(NUM_TEST_POINTS)
-
+    
+    print(metaval_accuracies)
+    print(metaval_labels)
     print('Mean validation accuracy/loss, stddev, and confidence intervals')
-    print((means, stds, ci95))
+    #print((means, stds, ci95))
 
     out_filename = FLAGS.logdir +'/'+ exp_string + '/' + 'test_ubs' + str(FLAGS.update_batch_size) + '_stepsize' + str(FLAGS.update_lr) + '.csv'
     out_pkl = FLAGS.logdir +'/'+ exp_string + '/' + 'test_ubs' + str(FLAGS.update_batch_size) + '_stepsize' + str(FLAGS.update_lr) + '.pkl'
@@ -266,7 +278,7 @@ def main():
                 if FLAGS.train: # TODO: why +15 and *2 --> followin Ravi: "15 examples per class were used for evaluating the post-update meta-gradient" = MAML algo 2, line 10 --> see how 5 and 15 is split up in maml.py?
                     # DataGenerator(number_of_images_per_class, number_of_tasks_in_batch)
                     data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
-                else:
+                else: # we're in the testing phase (not train), FLAGS.meta_batch_size = 1
                     data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
             else: # this is for omniglot
                 data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
