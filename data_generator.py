@@ -119,8 +119,8 @@ class DataGenerator(object):
         
         
         
-        filename_list_pkl = "Filenames_" + str(FLAGS.datasource) + "_Train" + str(train) + ".pkl"
-        label_list_pkl = "Labels_" + str(FLAGS.datasource) + "_Train" + str(train) + ".pkl"
+        filename_list_pkl = "Filenames_" + str(FLAGS.datasource) + "_Train" + str(train) + "_Shots" + str(FLAGS.update_batch_size) + ".pkl"
+        label_list_pkl = "Labels_" + str(FLAGS.datasource) + "_Train" + str(train) + "_Shots" + str(FLAGS.update_batch_size) + ".pkl"
         
         if os.path.isfile(filename_list_pkl) and os.path.isfile(label_list_pkl):
             # Filenames list exists already, load from pickle

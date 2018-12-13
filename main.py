@@ -212,23 +212,25 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             result = sess.run([model.metaval_total_loss1] +  model.metaval_total_losses2, feed_dict)
         metaval_accuracies.append(result)
         """
-        result = sess.run([model.test_outputas] + model.test_outputbs, feed_dict)
+        result = sess.run([model.test_accuraciesa] + model.test_accuraciesb, feed_dict)
+        #result = sess.run([model.test_outputas] + model.test_outputbs, feed_dict)
         labelas, labelbs = sess.run([model.labelas, model.labelbs], feed_dict)
         metaval_accuracies.append(result)
         metaval_labels.append([labelas, labelbs])
 
-    #metaval_accuracies = np.array(metaval_accuracies)
-    metaval_accuracies = np.array(metaval_accuracies[500])
-    metaval_labels = np.array(metaval_labels[500])
+    metaval_accuracies = np.array(metaval_accuracies)
+    #metaval_accuracies = np.array(metaval_accuracies[500])
+    #metaval_labels = np.array(metaval_labels[500])
+    #metaval_labels = np.sum(np.array(metaval_labels), axis=0)
     
     means = np.mean(metaval_accuracies, 0)
     stds = np.std(metaval_accuracies, 0)
     ci95 = 1.96*stds/np.sqrt(NUM_TEST_POINTS)
     
-    print(metaval_accuracies)
-    print(metaval_labels)
+    #print(metaval_accuracies)
+    #print(metaval_labels)
     print('Mean validation accuracy/loss, stddev, and confidence intervals')
-    #print((means, stds, ci95))
+    print((means, stds, ci95))
 
     out_filename = FLAGS.logdir +'/'+ exp_string + '/' + 'test_ubs' + str(FLAGS.update_batch_size) + '_stepsize' + str(FLAGS.update_lr) + '.csv'
     out_pkl = FLAGS.logdir +'/'+ exp_string + '/' + 'test_ubs' + str(FLAGS.update_batch_size) + '_stepsize' + str(FLAGS.update_lr) + '.pkl'
