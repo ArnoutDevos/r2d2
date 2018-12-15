@@ -118,33 +118,33 @@ class DataGenerator(object):
         all_filenames = []
         
         
-        suffix = str(FLAGS.datasource) + "_Train" + str(train) + str(FLAGS.num_classes) + "Way_" + str(FLAGS.update_batch_size) + "Shots" + "_MAMLmodel" + ".pkl"
-        filename_list_pkl = "Filenames_" + suffix
-        label_list_pkl = "Labels_" + suffix
+        #suffix = str(FLAGS.datasource) + "_Train" + str(train) + str(FLAGS.num_classes) + "Way_" + str(FLAGS.update_batch_size) + "Shots" + "_MAMLmodel" + ".pkl"
+        #filename_list_pkl = "Filenames_" + suffix
+        #label_list_pkl = "Labels_" + suffix
         
-        if os.path.isfile(filename_list_pkl) and os.path.isfile(label_list_pkl):
+        #if os.path.isfile(filename_list_pkl) and os.path.isfile(label_list_pkl):
             # Filenames list exists already, load from pickle
-            with open(filename_list_pkl, 'rb') as f:
-                all_filenames = pickle.load(f)
+        #    with open(filename_list_pkl, 'rb') as f:
+        #        all_filenames = pickle.load(f)
                 
-            with open(label_list_pkl, 'rb') as f:
-                labels = pickle.load(f)
-        else:
-            # Filenames list is not saved yet in file, generate filenames list and save to file
-            for _ in range(num_total_batches):
-                sampled_character_folders = random.sample(folders, self.num_classes)
-                random.shuffle(sampled_character_folders)
-                labels_and_images = get_images(sampled_character_folders, range(self.num_classes), nb_samples=self.num_samples_per_class, shuffle=False)
-                # make sure the above isn't randomized order
-                labels = [li[0] for li in labels_and_images]
-                filenames = [li[1] for li in labels_and_images]
-                all_filenames.extend(filenames)
+        #    with open(label_list_pkl, 'rb') as f:
+        #        labels = pickle.load(f)
+        #else:
+        # Filenames list is not saved yet in file, generate filenames list and save to file
+        for _ in range(num_total_batches):
+            sampled_character_folders = random.sample(folders, self.num_classes)
+            random.shuffle(sampled_character_folders)
+            labels_and_images = get_images(sampled_character_folders, range(self.num_classes), nb_samples=self.num_samples_per_class, shuffle=False)
+            # make sure the above isn't randomized order
+            labels = [li[0] for li in labels_and_images]
+            filenames = [li[1] for li in labels_and_images]
+            all_filenames.extend(filenames)
                 
-            with open(filename_list_pkl, 'wb') as f:
-                pickle.dump(all_filenames, f)
+            #with open(filename_list_pkl, 'wb') as f:
+            #    pickle.dump(all_filenames, f)
                 
-            with open(label_list_pkl, 'wb') as f:
-                pickle.dump(labels, f)
+            #with open(label_list_pkl, 'wb') as f:
+            #    pickle.dump(labels, f)
 
         # make queue for tensorflow to read from
         filename_queue = tf.train.string_input_producer(tf.convert_to_tensor(all_filenames), shuffle=False)

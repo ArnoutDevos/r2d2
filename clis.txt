@@ -1,0 +1,23 @@
+## R2D2 ##
+### miniImagenet
+#### 5 way, 5 shot, RESULT: 59.5 ± 0.9%
+python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 5 way, 1 shot, RESULT: 46.7 ± 1.8%
+python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 1 shot, RESULT: 72.8 ± 3.0%
+python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=2 --logdir=logs/miniimagenet2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 5 shot, RESULT: 79.9 ± 1.3% (12k)
+python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=2 --logdir=logs/miniimagenet2way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+### CIFAR-FS
+#### 2 way, 1 shot, RESULT: 
+python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=2 --logdir=logs/cifarfs2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+
+#R2D2 exact paper
+
+#### 5 way, 1 shot, RESULT:
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperminiimagenet5way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True

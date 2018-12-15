@@ -37,7 +37,8 @@ import random
 import tensorflow as tf
 
 from data_generator import DataGenerator
-from r2d2 import R2D2
+#from r2d2 import R2D2
+from r2d2_paper import R2D2_paper
 #from maml import MAML
 from tensorflow.python.platform import flags
 
@@ -93,6 +94,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
     num_classes = data_generator.num_classes # for classification, 1 otherwise
     multitask_weights, reg_weights = [], []
     
+    meta_lr_damped = FLAGS.meta_lr
+    
     # Start iterations from resume_itr if there is a training history
     for itr in range(resume_itr, FLAGS.pretrain_iterations + FLAGS.metatrain_iterations):
         feed_dict = {}
@@ -147,7 +150,11 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
             saver.save(sess, FLAGS.logdir + '/' + exp_string + '/model' + str(itr))
-
+        
+        
+        if (itr+1) % 2000 == 0:
+            meta_lr_damped = meta_lr_damped*0.5
+        
         # sinusoid is infinite data, so no need to test on meta-validation set.
         if (itr!=0) and itr % TEST_PRINT_INTERVAL == 0 and FLAGS.datasource !='sinusoid':
             if 'generate' not in dir(data_generator):
@@ -156,6 +163,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
                     input_tensors = [model.metaval_total_accuracy1, model.metaval_total_accuracies2[FLAGS.num_updates-1], model.summ_op]
                 else:
                     input_tensors = [model.metaval_total_loss1, model.metaval_total_losses2[FLAGS.num_updates-1], model.summ_op]
+                
+                feed_dict = {model.meta_lr: meta_lr_damped}
             else:
                 batch_x, batch_y, amp, phase = data_generator.generate(train=False)
                 inputa = batch_x[:, :num_classes*FLAGS.update_batch_size, :]
@@ -321,7 +330,7 @@ def main():
         tf_data_load = False
         input_tensors = None
 
-    model = R2D2(dim_input, dim_output, test_num_updates=test_num_updates) # test_num_updates = eval on at least one update for training, 10 testing
+    model = R2D2_paper(dim_input, dim_output, test_num_updates=test_num_updates) # test_num_updates = eval on at least one update for training, 10 testing
     if FLAGS.train or not tf_data_load:
         model.construct_model(input_tensors=input_tensors, prefix='metatrain_')
     if tf_data_load:
