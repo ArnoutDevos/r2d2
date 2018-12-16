@@ -110,7 +110,8 @@ class R2D2_paper:
                 
                 # Calculate new LINEAR REGRESSION weights on train set, using the Woodbury identity
                 fast_weights = dict(zip(weights.keys(), [weights[key] for key in weights.keys()]))
-                fast_weights['stop_w5'] = tf.stop_gradient(tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela))
+                #fast_weights['stop_w5'] = tf.stop_gradient(tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela))
+                fast_weights['stop_w5'] = tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela)
 
                 # for dropout
                 if FLAGS.train:
@@ -255,7 +256,7 @@ class R2D2_paper:
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
         flat_dim = 640
         if FLAGS.datasource == 'miniimagenet': # 84x84 * (1/2 + 1/2/2/2)
-            flat_dim = 76800
+            flat_dim = 51200
         else:# cifarfs 32x32 * (1/2 + 1/2/2/2) = 640
             flat_dim = 640 
         
@@ -295,7 +296,7 @@ class R2D2_paper:
         hidden3 = conv_block(hidden2, weights['conv3'], weights['b3'], reuse, scope+'2', activation = self.activation)
         hidden3 = tf.layers.dropout(hidden3, rate=self.dropout, training=is_training)
         hidden4 = conv_block(hidden3, weights['conv4'], weights['b4'], reuse, scope+'3', activation = self.activation)
-        hidden4 = tf.layers.dropout(hidden3, rate=self.dropout, training=is_training)
+        hidden4 = tf.layers.dropout(hidden4, rate=self.dropout, training=is_training)
         
         # Flattening of blocks 3 and 4
         hidden3 = tf.reshape(hidden3, [-1, np.prod([int(dim) for dim in hidden3.get_shape()[1:]])])
@@ -307,7 +308,8 @@ class R2D2_paper:
         return flatconcat34
         
     def forward_conv_lr(self, inp, weights, reuse=False, scope='', is_training=False):
-        W = tf.stop_gradient(weights['stop_w5']) # stop backpropagation to CNN weights through RR calculation
+        #W = tf.stop_gradient(weights['stop_w5']) # stop backpropagation to CNN weights through RR calculation
+        W = weights['stop_w5']
         return tf.multiply(weights['lr_alpha'],tf.matmul(inp, W)) + tf.multiply(weights['lr_beta'],tf.ones(shape=[inp.get_shape()[0], self.dim_output], dtype=tf.float32))
 
 
