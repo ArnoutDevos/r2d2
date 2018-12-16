@@ -23,7 +23,7 @@ After 60,000 (60k) iterations, with a 95% confidence interval, and 10 finetune s
 | CIFAR-FS, R2D2 5-way, 5-shot |              | |79.4 ± 0.1% |
 | CIFAR-FS, R2D2 2-way, 1-shot |              | |83.4 ± 0.3% |
 | CIFAR-FS, R2D2 2-way, 5-shot |              | |91.1 ± 0.2% |
-| miniImagenet, R2D2 5-way, 1-shot | 46.7 ± 1.8%  | 48.7 ± 1.8% | 51.5 ± 0.2%  |
+| miniImagenet, R2D2 5-way, 1-shot | 46.7 ± 1.8%  | 48.7 ± 1.8% (8k) | 51.5 ± 0.2%  |
 | miniImagenet, R2D2 5-way, 5-shot | 63.7 ± 1.3%  |  |68.8 ± 0.2%  |
 | miniImagenet, R2D2 2-way, 1-shot | 72.8 ± 3.0% |  | 76.7 ± 0.3%  |
 | miniImagenet, R2D2 2-way, 5-shot | 83.9 ± 1.2% |  | 86.8 ± 0.2%  |
