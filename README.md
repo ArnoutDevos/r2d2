@@ -15,7 +15,7 @@ To run the code, see the usage instructions at the top of `main.py`.
 
 ### Results
 
-After 60,000 (60k) iterations, with a 95% confidence interval, and 10 finetune steps:
+After 60,000 (60k) iterations, with a 95% confidence interval:
 
 | Dataset, method | this code<br />MAML model<br />accuracy | this code<br />R2D2 model<br />accuracy | reported by<br /> R2D2 [2] |
 | ------------- | :---------------------: | :-----------: | :-----------: |
