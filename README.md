@@ -15,16 +15,16 @@ To run the code, see the usage instructions at the top of `main.py`.
 
 ### Results
 
-After 60,000 (60k) iterations, with a 95% confidence interval:
+After 20,000 (20k) iterations, with a 95% confidence interval:
 
 | Dataset, method | this code<br />MAML model<br />accuracy | this code<br />R2D2 model<br />accuracy | reported by<br /> R2D2 [2] |
 | ------------- | :---------------------: | :-----------: | :-----------: |
 | CIFAR-FS, R2D2 5-way, 1-shot |  | 60.2 ± 1.8% (20k) |65.3 ± 0.2% |
-| CIFAR-FS, R2D2 5-way, 5-shot |              | 70.9 ± 0.9% (20k) |79.4 ± 0.1% |
-| CIFAR-FS, R2D2 2-way, 1-shot |              | 83.6 ± 2.6% (20k) |83.4 ± 0.3% |
-| CIFAR-FS, R2D2 2-way, 5-shot |              | 89.0 ± 1.0% (20k) |91.1 ± 0.2% |
-| miniImagenet, R2D2 5-way, 1-shot | 46.7 ± 1.8%  | 51.7 ± 1.8% (20k) | 51.5 ± 0.2%  |
-| miniImagenet, R2D2 5-way, 5-shot | 63.7 ± 1.3%  | 64.1 ± 0.9% (16k) |68.8 ± 0.2%  |
+| CIFAR-FS, R2D2 5-way, 5-shot |              | 70.9 ± 0.9% |79.4 ± 0.1% |
+| CIFAR-FS, R2D2 2-way, 1-shot |              | 83.6 ± 2.6% |83.4 ± 0.3% |
+| CIFAR-FS, R2D2 2-way, 5-shot |              | 89.0 ± 1.0% |91.1 ± 0.2% |
+| miniImagenet, R2D2 5-way, 1-shot | 46.7 ± 1.8%  | 51.7 ± 1.8% | 51.5 ± 0.2%  |
+| miniImagenet, R2D2 5-way, 5-shot | 63.7 ± 1.3%  | 63.3 ± 0.9% |68.8 ± 0.2%  |
 | miniImagenet, R2D2 2-way, 1-shot | 72.8 ± 3.0% | 72.4 ± 3.0% (7k) | 76.7 ± 0.3%  |
 | miniImagenet, R2D2 2-way, 5-shot | 83.9 ± 1.2% |  | 86.8 ± 0.2%  |
 
