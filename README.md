@@ -26,7 +26,7 @@ After 20,000 (20k) iterations, with a 95% confidence interval:
 | miniImagenet, R2D2 5-way, 1-shot | 46.7 ± 1.8%  | 51.7 ± 1.8% | 51.5 ± 0.2%  |
 | miniImagenet, R2D2 5-way, 5-shot | 63.7 ± 1.3%  | 63.3 ± 0.9% |68.8 ± 0.2%  |
 | miniImagenet, R2D2 2-way, 1-shot | 72.8 ± 3.0% | 74.6 ± 2.9% | 76.7 ± 0.3%  |
-| miniImagenet, R2D2 2-way, 5-shot | 83.9 ± 1.2% | 84.6 ± 1.2% | 86.8 ± 0.2%  |
+| miniImagenet, R2D2 2-way, 5-shot | 83.9 ± 1.2% | 84.6 ± 1.2% (7k) | 86.8 ± 0.2%  |
 
 ### References
 
