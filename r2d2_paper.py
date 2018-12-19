@@ -55,7 +55,7 @@ class R2D2_paper:
             test_num_updates:   An integer equal to the amount of finetuning steps that should be taken during training and testing
 
         Raises:
-            ValueError: The dataset specified has no implementation
+            ValueError: The dataset specified is not recognized
         """
         self.dim_input = dim_input
         self.dim_output = dim_output
@@ -143,8 +143,8 @@ class R2D2_paper:
             lossesb = [[]]*num_updates
             accuraciesb = [[]]*num_updates
 
-            def task_metalearn(inp, reuse=True):
-                """ Perform gradient descent for one task in the meta-batch. """
+            def task_baselearn(inp, reuse=True):
+                """ Finetune on one task in the meta-batch. """
                 inputa, inputb, labela, labelb = inp
                 task_outputbs, task_lossesb = [], []
 
@@ -154,18 +154,13 @@ class R2D2_paper:
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
                 task_lossa = self.loss_func(task_outputa, labela)
                 
-                # FINE TUNING/BASE LEARNING HAPPENS HERE
                 ## Pass through CNN
                 x = self.forward_conv_CNN(inputa, weights, reuse=True)                
                 
-                ## Linear Regression with Woodbury Identity
-                # using training set (a) to determine new weights for linear regressor
+                # Linear Regression with Woodbury Identity using training set (a) to determine new weights for linear regressor
                 xT = tf.transpose(x)
                 xxT = tf.matmul(x,xT)
-                
-                # Calculate new LINEAR REGRESSION weights on train set, using the Woodbury identity
-                fast_weights = dict(zip(weights.keys(), [weights[key] for key in weights.keys()]))
-                #fast_weights['stop_w5'] = tf.stop_gradient(tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela))
+                fast_weights = dict(zip(weights.keys(), [weights[key] for key in weights.keys()])) # Copy current weights
                 fast_weights['stop_w5'] = tf.matmul(tf.matmul(xT,tf.linalg.inv(xxT + weights['lr_lambda'] * tf.eye(tf.shape(xxT)[0],tf.shape(xxT)[1]))),labela)
 
                 # for dropout
@@ -180,7 +175,8 @@ class R2D2_paper:
                 task_lossesb.append(self.loss_func(output, labelb))
                 
                 task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb]
-
+                
+                # When classification, extend the output with accuracies
                 if self.classification:
                     task_accuracya = tf.contrib.metrics.accuracy(tf.argmax(tf.nn.softmax(task_outputa), 1), tf.argmax(labela, 1))
                     for j in range(num_updates):
@@ -189,16 +185,15 @@ class R2D2_paper:
 
                 return task_output
 
-            if FLAGS.norm is not 'None': # to initialize batch norm variables
-                # to initialize the batch norm vars, might want to combine this, and not run idx 0 twice.
-                unused = task_metalearn((self.inputa[0], self.inputb[0], self.labela[0], self.labelb[0]), False)
+            if FLAGS.norm is not 'None': # to initialize BatchNorm variables, run the base_learning step on task 0
+                unused = task_baselearn((self.inputa[0], self.inputb[0], self.labela[0], self.labelb[0]), False)
 
             out_dtype = [tf.float32, [tf.float32]*num_updates, tf.float32, [tf.float32]*num_updates]
-            if self.classification: # accuracies are also stored
+            if self.classification: # accuracies are also stored in the case of classification
                 out_dtype.extend([tf.float32, [tf.float32]*num_updates])
-            # THE REAL LEARNING CONSTRUCTION OCCURS HERE
-            # IMPORTANT: executes in parallel for ALL TASKS in batch I guess? The inputs are formatted in a special way to contain multiple tasks?
-            result = tf.map_fn(task_metalearn, elems=(self.inputa, self.inputb, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
+
+            # Executes fine tuning for ALL TASKS in meta batch: the input queues are formatted in a way to contain multiple tasks
+            result = tf.map_fn(task_baselearn, elems=(self.inputa, self.inputb, self.labela, self.labelb), dtype=out_dtype, parallel_iterations=FLAGS.meta_batch_size)
             if self.classification:
                 outputas, outputbs, lossesa, lossesb, accuraciesa, accuraciesb = result
             else:
@@ -206,16 +201,11 @@ class R2D2_paper:
 
         ## Performance & Optimization
         if 'train' in prefix:
-        """
-        Training
-        
-        1. the losses on the base-train, and base-test
-        """
+            # in meta-training: execute full base learning and meta learning
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
-            # after the map_fn
             self.outputas, self.outputbs = outputas, outputbs
-            #self.labelas, self.labelbs = outputas, outputbs
+
             if self.classification:
                 self.total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
                 self.total_accuracies2 = total_accuracies2 = [tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
@@ -228,18 +218,17 @@ class R2D2_paper:
                 # Compute gradients after num_updates
                 self.gvs = gvs = optimizer.compute_gradients(self.total_losses2[FLAGS.num_updates-1])
                 
-                #grads = tf.gradients(loss, list(fast_weights.values()))
-                #grads = [tf.stop_gradient(grad) for grad in gvs]
-                
-                # Gradients are clipped by [-10,10] to avoid explosion?
+                # Gradients are clipped by [-10,10] to avoid gradient explosion
                 if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
                     gvs = [(tf.clip_by_value(grad, -10, 10), var) for grad, var in gvs if grad is not None]
                     
                 # update parameters
                 self.metatrain_op = optimizer.apply_gradients(gvs)
         else:
+            # in meta-validation: execute only base learning (fine tuning) and validate
             self.metaval_total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.metaval_total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
+            
             if self.classification:
                 self.metaval_total_accuracy1 = total_accuracy1 = tf.reduce_sum(accuraciesa) / tf.to_float(FLAGS.meta_batch_size)
                 self.metaval_total_accuracies2 = total_accuracies2 =[tf.reduce_sum(accuraciesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
@@ -264,17 +253,15 @@ class R2D2_paper:
             if self.classification:
                 tf.summary.scalar(prefix+'Post-update accuracy, step ' + str(j+1), total_accuracies2[j])
 
-    ### Network construction functions
-    ## CNN
-    # initialize and return weights for CNN
     def construct_conv_weights(self):
-        """ R2D2 spec:
+        """ R2D2 model weights initialziation:
         4 conv blocks:
         - 3x3 convolutions
         - batch-normalization
         - 2x2 max pooling
         - leaky relu (factor 0.1)
         - filters: [96, 192, 384, 512]
+        - dropout on layer 3 and 4
         """
         weights = {}
 
@@ -296,39 +283,59 @@ class R2D2_paper:
         # RR weights
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
         flat_dim = 51200
-        if FLAGS.datasource == 'miniimagenet': # 84x84 * (1/2 + 1/2/2/2)
+        if FLAGS.datasource == 'miniimagenet':
             flat_dim = 51200
-        elif FLAGS.datasource == 'cifarfs':# cifarfs 32x32 * (1/2 + 1/2/2/2) = 640
+        elif FLAGS.datasource == 'cifarfs':
             flat_dim = 8192
         elif FLAGS.datasource == 'omniglot':
             flat_dim = 3968
-
+        
         weights['stop_w5'] = tf.get_variable('stop_w5', [flat_dim, self.dim_output], initializer=fc_initializer)
         
-        # hyper parameters of base learner, to be learnt in outer loop together with CNN parameters
-        #weights['lr_lambda'] = tf.get_variable('lr_lambda', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
-        #weights['lr_alpha'] = tf.get_variable('lr_alpha',initializer=tf.constant(1., dtype=dtype), dtype=dtype)
-        #weights['lr_beta'] = tf.get_variable('lr_beta', initializer=tf.constant(1., dtype=dtype), dtype=dtype)
-        
+        # hyperparameters of base learner, to be learnt in outer loop together with CNN parameters     
         weights['lr_lambda'] = tf.Variable(tf.zeros(1, dtype = dtype))
         weights['lr_alpha'] = tf.Variable(tf.zeros(1, dtype = dtype))
         weights['lr_beta'] = tf.Variable(tf.zeros(1, dtype = dtype))
-        
-        
-        #weights['b5'] = tf.Variable(tf.zeros([self.dim_output]), name='b5')
 
         return weights
 
-    # return output of input image, with weights given as argument!
-    # This is only to be used in the meta-learning step, during base training the direct solution for LR is used!
     def forward_conv(self, inp, weights, reuse=False, scope='', is_training=False):
+        """R2D2 model forward specification
+        
+        This is only to be used in the meta-learning step, during base training the direct solution for LR is used.
+        
+        It consists of:
+        - Feature extractor CNN part, concatenate flattened outputs of layer 3 and 4
+        - Linear regression prediction on concatenated flattened outputs of layer 3 and 4 with scale and bias adjust for cross-entropy loss
+        
+        Args:
+            inp:            
+            weights:        Model weights to be used for forward prediction
+            reuse:          A boolean which defines whether or not to reuse the batch normalization initialization
+            scope:          TensorFlow Variable scope to be used
+            is_training:    A boolean signifying whether we are training or not, relevant for dropout
+            
+        """
         out = self.forward_conv_CNN(inp, weights, reuse=reuse, scope=scope, is_training=is_training)
         out = self.forward_conv_lr(out, weights, reuse=reuse, scope=scope, is_training=is_training)
         
         return out
     
     def forward_conv_CNN(self, inp, weights, reuse=False, scope='', is_training=False):
-        # reuse is for the normalization parameters.
+        """ R2D2 model specification, CNN part:
+        4 conv blocks:
+        - 3x3 convolutions
+        - batch-normalization
+        - 2x2 max pooling
+        - leaky relu (factor 0.1)
+        - filters: [96, 192, 384, 512]
+        - dropout on layer 3 and 4
+        - concatenate flattened outputs of layer 3 and 4
+        
+        Args:
+            <see forward_conv()>
+        """
+        
         channels = self.channels
         inp = tf.reshape(inp, [-1, self.img_size, self.img_size, channels])
 
@@ -340,15 +347,8 @@ class R2D2_paper:
         hidden4 = tf.layers.dropout(hidden4, rate=self.dropout, training=is_training)
         
         # Flattening of blocks 3 and 4
-        #if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-            # last hidden layer is 6x6x64-ish, reshape to a vector
-            #hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
         hidden3 = tf.reshape(hidden3, [-1, np.prod([int(dim) for dim in hidden3.get_shape()[1:]])])
-        hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
-        #elif FLAGS.datasource == 'omniglot':# omniglot
-        #    hidden3 = tf.reduce_mean(hidden3, [1, 2])
-        #   hidden4 = tf.reduce_mean(hidden4, [1, 2])
-        
+        hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])        
         
         # Concatenate 
         flatconcat34 = tf.concat([hidden3, hidden4], axis=1) # keep batched (axis 0), concatenate columns (axis 1)
@@ -356,8 +356,13 @@ class R2D2_paper:
         return flatconcat34
         
     def forward_conv_lr(self, inp, weights, reuse=False, scope='', is_training=False):
-        #W = tf.stop_gradient(weights['stop_w5']) # stop backpropagation to CNN weights through RR calculation
+        """ R2D2 model specification, Linear Regression part:
+        - Take in concatenated flattened outputs of layer 3 and 4
+        - Perform linear regression prediction, with meta parameters scale alpha, and bias beta
+        
+        Args:
+            <see forward_conv()>
+        """
+        
         W = weights['stop_w5']
         return tf.multiply(weights['lr_alpha'],tf.matmul(inp, W)) + tf.multiply(weights['lr_beta'],tf.ones(shape=[inp.get_shape()[0], self.dim_output], dtype=tf.float32))
-
-

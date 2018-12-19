@@ -13,50 +13,20 @@ FLAGS = flags.FLAGS
 
 class DataGenerator(object):
     """
-    Data Generator capable of generating batches of sinusoid or Omniglot data.
-    A "class" is considered a class of omniglot digits or a particular sinusoid function.
+    Data Generator capable of generating batches of miniImageNet or cifar fs data.
+    A "class" is considered a class of miniImagenet or cifar fs images
     """
     def __init__(self, num_samples_per_class, batch_size, config={}):
         """
         Args:
-            num_samples_per_class: num samples to generate per class in one batch
-            batch_size: size of meta batch size (e.g. number of functions)
+            num_samples_per_class:  num samples (images) to generate per class in one batch
+            batch_size:             size of meta batch size (e.g. number of tasks)
         """
         self.batch_size = batch_size
         self.num_samples_per_class = num_samples_per_class
         self.num_classes = 1  # by default 1 (only relevant for classification problems)
 
-        if FLAGS.datasource == 'sinusoid':
-            self.generate = self.generate_sinusoid_batch
-            self.amp_range = config.get('amp_range', [0.1, 5.0])
-            self.phase_range = config.get('phase_range', [0, np.pi])
-            self.input_range = config.get('input_range', [-5.0, 5.0])
-            self.dim_input = 1
-            self.dim_output = 1
-        elif 'omniglot' in FLAGS.datasource:
-            self.num_classes = config.get('num_classes', FLAGS.num_classes)
-            # dictionary.get() returns a value for the given key. If key is not available then returns default value None.
-            self.img_size = config.get('img_size', (28, 28))
-            self.dim_input = np.prod(self.img_size)
-            self.dim_output = self.num_classes
-            # data that is pre-resized using PIL with lanczos filter
-            data_folder = config.get('data_folder', './data/omniglot_resized')
-
-            character_folders = [os.path.join(data_folder, family, character) \
-                for family in os.listdir(data_folder) \
-                if os.path.isdir(os.path.join(data_folder, family)) \
-                for character in os.listdir(os.path.join(data_folder, family))]
-            random.seed(1)
-            random.shuffle(character_folders)
-            num_val = 100
-            num_train = config.get('num_train', 1200) - num_val
-            self.metatrain_character_folders = character_folders[:num_train]
-            if FLAGS.test_set:
-                self.metaval_character_folders = character_folders[num_train+num_val:]
-            else:
-                self.metaval_character_folders = character_folders[num_train:num_train+num_val]
-            self.rotations = config.get('rotations', [0, 90, 180, 270])
-        elif FLAGS.datasource == 'miniimagenet':
+        if FLAGS.datasource == 'miniimagenet':
             self.num_classes = config.get('num_classes', FLAGS.num_classes)
             self.img_size = config.get('img_size', (84, 84))
             self.dim_input = np.prod(self.img_size)*3
@@ -118,19 +88,7 @@ class DataGenerator(object):
         all_filenames = []
         
         
-        #suffix = str(FLAGS.datasource) + "_Train" + str(train) + str(FLAGS.num_classes) + "Way_" + str(FLAGS.update_batch_size) + "Shots" + "_MAMLmodel" + ".pkl"
-        #filename_list_pkl = "Filenames_" + suffix
-        #label_list_pkl = "Labels_" + suffix
-        
-        #if os.path.isfile(filename_list_pkl) and os.path.isfile(label_list_pkl):
-            # Filenames list exists already, load from pickle
-        #    with open(filename_list_pkl, 'rb') as f:
-        #        all_filenames = pickle.load(f)
-                
-        #    with open(label_list_pkl, 'rb') as f:
-        #        labels = pickle.load(f)
-        #else:
-        # Filenames list is not saved yet in file, generate filenames list and save to file
+        # Generate filenames list and save to file
         for _ in range(num_total_batches):
             sampled_character_folders = random.sample(folders, self.num_classes)
             random.shuffle(sampled_character_folders)
@@ -139,12 +97,6 @@ class DataGenerator(object):
             labels = [li[0] for li in labels_and_images]
             filenames = [li[1] for li in labels_and_images]
             all_filenames.extend(filenames)
-                
-            #with open(filename_list_pkl, 'wb') as f:
-            #    pickle.dump(all_filenames, f)
-                
-            #with open(label_list_pkl, 'wb') as f:
-            #    pickle.dump(labels, f)
 
         # make queue for tensorflow to read from
         filename_queue = tf.train.string_input_producer(tf.convert_to_tensor(all_filenames), shuffle=False)
@@ -185,9 +137,7 @@ class DataGenerator(object):
                 # get rotation per class (e.g. 0,1,2,0,0 if there are 5 classes)
                 rotations = tf.multinomial(tf.log([[1., 1.,1.,1.]]), self.num_classes)
                 
-            #??? need to compare with MAML, this looks wrong
             label_batch = tf.convert_to_tensor(labels)
-            # label_batch = tf.convert_to_tensor(labels[i*examples_per_batch:(i+1)*examples_per_batch])
             new_list, new_label_list = [], []
             for k in range(self.num_samples_per_class):
                 class_idxs = tf.range(0, self.num_classes)
@@ -212,17 +162,3 @@ class DataGenerator(object):
         all_label_batches = tf.stack(all_label_batches)
         all_label_batches = tf.one_hot(all_label_batches, self.num_classes) # Do one hot conversion for cross-entropy loss
         return all_image_batches, all_label_batches
-
-    def generate_sinusoid_batch(self, train=True, input_idx=None):
-        # Note train arg is not used (but it is used for omniglot method.
-        # input_idx is used during qualitative testing --the number of examples used for the grad update
-        amp = np.random.uniform(self.amp_range[0], self.amp_range[1], [self.batch_size])
-        phase = np.random.uniform(self.phase_range[0], self.phase_range[1], [self.batch_size])
-        outputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_output])
-        init_inputs = np.zeros([self.batch_size, self.num_samples_per_class, self.dim_input])
-        for func in range(self.batch_size):
-            init_inputs[func] = np.random.uniform(self.input_range[0], self.input_range[1], [self.num_samples_per_class, 1])
-            if input_idx is not None:
-                init_inputs[:,input_idx:,0] = np.linspace(self.input_range[0], self.input_range[1], num=self.num_samples_per_class-input_idx, retstep=False)
-            outputs[func] = amp[func] * np.sin(init_inputs[func]-phase[func])
-        return init_inputs, outputs, amp, phase

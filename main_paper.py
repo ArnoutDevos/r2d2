@@ -1,34 +1,21 @@
 """
 Usage Instructions:
-    10-shot sinusoid:
-        python main.py --datasource=sinusoid --logdir=logs/sine/ --metatrain_iterations=70000 --norm=None --update_batch_size=10
-
-    10-shot sinusoid baselines:
-        python main.py --datasource=sinusoid --logdir=logs/sine/ --pretrain_iterations=70000 --metatrain_iterations=0 --norm=None --update_batch_size=10 --baseline=oracle
-        python main.py --datasource=sinusoid --logdir=logs/sine/ --pretrain_iterations=70000 --metatrain_iterations=0 --norm=None --update_batch_size=10
-
-    5-way, 1-shot omniglot:
-        python main.py --datasource=omniglot --metatrain_iterations=40000 --meta_batch_size=32 --update_batch_size=1 --update_lr=0.4 --num_updates=1 --logdir=logs/omniglot5way/
-
-    20-way, 1-shot omniglot:
-        python main.py --datasource=omniglot --metatrain_iterations=40000 --meta_batch_size=16 --update_batch_size=1 --num_classes=20 --update_lr=0.1 --num_updates=5 --logdir=logs/omniglot20way/
 
     5-way 1-shot mini imagenet:
-        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=5 --num_classes=5 --logdir=logs/miniimagenet1shot/ --num_filters=32 --max_pool=True
+        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet1shot/ --num_filters=32 --max_pool=True
 
     5-way 5-shot mini imagenet:
-        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=5 --num_classes=5 --logdir=logs/miniimagenet5shot/ --num_filters=32 --max_pool=True
+        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet5shot/ --num_filters=32 --max_pool=True
 
     5-way 1-shot CIFAR fs:
-        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=5 --num_classes=5 --logdir=logs/cifarfs1shot/ --num_filters=32 --max_pool=True
+        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/cifarfs1shot/ --num_filters=32 --max_pool=True
         
     5-way 5-shot CIFAR fs:
-        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=5 --num_classes=5 --logdir=logs/cifarfs5shot/ --num_filters=32 --max_pool=True
+        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/cifarfs5shot/ --num_filters=32 --max_pool=True
         
     To run evaluation, use the '--train=False' flag and the '--test_set=True' flag to use the test set.
 
-    For omniglot and miniimagenet training, acquire the dataset online, put it in the correspoding data directory, and see the python script instructions in that directory to preprocess the data.
-    For CIFAR fs training, the dataset is automatically downloaded, and the splits are present in this code.
+    For miniimagenet training, acquire the dataset online, put it in the correspoding data directory, and see the python script instructions in that directory to preprocess the data. For CIFAR fs training, the dataset is automatically downloaded, and the splits are present in the code in the data directory.
 """
 import csv
 import numpy as np
@@ -78,6 +65,16 @@ flags.DEFINE_integer('train_update_batch_size', -1, 'number of examples used for
 flags.DEFINE_float('train_update_lr', -1, 'value of inner gradient step step during training. (use if you want to test with a different value)') # 0.1 for omniglot
 
 def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
+    """Trains a model with meta learning
+        
+        Args:
+            model:              The class object which is the model we are training on
+            saver:              TensorFlow saver object to keep last (10) trainable variables
+            sess:               TensorFlow session object signifying the session on which is trained
+            exp_string:         String which is used as a folder name to export results to
+            data_generator:     data_generator object that generates the right data for the meta learning problem at hand
+            resume_itr:         Integer equal to the iteration from which training should be resumed, default = 0
+        """
     SUMMARY_INTERVAL = 100
     SAVE_INTERVAL = 1000
     if FLAGS.datasource == 'sinusoid':
@@ -123,12 +120,8 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if (itr % SUMMARY_INTERVAL == 0 or itr % PRINT_INTERVAL == 0):
             # Add all the ops together in one big list, to evaluate them, and print I guess
-            # total_loss1 = train loss
-            # total_loss2 = test loss after num_updates (eval)
             input_tensors.extend([model.summ_op, model.total_loss1, model.total_losses2[FLAGS.num_updates-1]])
             if model.classification:
-                # total_accuracy1 = train accuracy
-                # total_loss2 = test accuracy after num_updates (eval)
                 input_tensors.extend([model.total_accuracy1, model.total_accuracies2[FLAGS.num_updates-1]])
         
         # Do one full meta train step
@@ -151,8 +144,7 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 
         if (itr!=0) and itr % SAVE_INTERVAL == 0:
             saver.save(sess, FLAGS.logdir + '/' + exp_string + '/model' + str(itr))
-        
-        
+
         if (itr+1) % 2000 == 0:
             meta_lr_damped = meta_lr_damped*0.5
         
@@ -188,6 +180,16 @@ def train(model, saver, sess, exp_string, data_generator, resume_itr=0):
 NUM_TEST_POINTS = 600
 
 def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
+    """Tests a meta-learned model
+        
+        Args:
+            model:              The class object which is the model we are training on
+            saver:              TensorFlow saver object to keep last (10) trainable variables
+            sess:               TensorFlow session object signifying the session on which is trained
+            exp_string:         String which is used as a folder name to export results to
+            data_generator:     data_generator object that generates the right data for the meta learning problem at hand
+            test_num_updates:   How many updates are done during testing
+        """
     num_classes = data_generator.num_classes # for classification, 1 otherwise
 
     np.random.seed(1)
@@ -214,23 +216,12 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
             labelb = batch_y[:,num_classes*FLAGS.update_batch_size:, :]
 
             feed_dict = {model.inputa: inputa, model.inputb: inputb,  model.labela: labela, model.labelb: labelb, model.meta_lr: 0.0}
-        """
-        if model.classification:
-            #result = sess.run([model.test_accuraciesa] + model.test_accuraciesb, feed_dict)
-            result = sess.run([model.metaval_total_accuracy1] + model.metaval_total_accuracies2, feed_dict)
-        else:  # this is for sinusoid
-            result = sess.run([model.metaval_total_loss1] +  model.metaval_total_losses2, feed_dict)
-        metaval_accuracies.append(result)
-        """
         result = sess.run([model.test_accuraciesa] + model.test_accuraciesb, feed_dict)
-        #result = sess.run([model.test_outputas] + model.test_outputbs, feed_dict)
         labelas, labelbs = sess.run([model.labelas, model.labelbs], feed_dict)
         metaval_accuracies.append(result)
         metaval_labels.append([labelas, labelbs])
 
     metaval_accuracies = np.array(metaval_accuracies)
-    #metaval_accuracies = np.array(metaval_accuracies[500])
-    #metaval_labels = np.array(metaval_labels[500])
     metaval_labels = np.sum(np.array(metaval_labels), axis=0)
     
     means = np.mean(metaval_accuracies, 0)
@@ -253,7 +244,8 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
         writer.writerow(stds)
         writer.writerow(ci95)
 
-def main(): 
+def main():
+    """ Puts everything in place to meta-learn and test """
     test_num_updates = 1 # Base learner is linear regression, so only one step required
 
     if FLAGS.train == False:
@@ -270,26 +262,20 @@ def main():
             assert FLAGS.update_batch_size == 1
             data_generator = DataGenerator(1, FLAGS.meta_batch_size)  # only use one datapoint,
         else:
-            if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs': # TODO - use 15 val examples for imagenet?
-                if FLAGS.train: # TODO: why +15 and *2 --> followin Ravi: "15 examples per class were used for evaluating the post-update meta-gradient" = MAML algo 2, line 10 --> see how 5 and 15 is split up in maml.py?
+            if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs': # use 15 val examples
+                if FLAGS.train: # following Ravi: "15 examples per class were used for evaluating the post-update meta-gradient"
                     # DataGenerator(number_of_images_per_class, number_of_tasks_in_batch)
-                    data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                    data_generator = DataGenerator(FLAGS.update_batch_size+15, FLAGS.meta_batch_size)
                 else: # we're in the testing phase (not train), FLAGS.meta_batch_size = 1
-                    data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                    data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)
             else: # this is for omniglot
-                data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)  # only use one datapoint for testing to save memory
+                data_generator = DataGenerator(FLAGS.update_batch_size*2, FLAGS.meta_batch_size)
 
 
     dim_output = data_generator.dim_output # number of classes, e.g. 5 for miniImagenet tasks
-    if FLAGS.baseline == 'oracle': # NOTE - this flag is specific to sinusoid
-        assert FLAGS.datasource == 'sinusoid'
-        dim_input = 3
-        FLAGS.pretrain_iterations += FLAGS.metatrain_iterations
-        FLAGS.metatrain_iterations = 0
-    else:
-        dim_input = data_generator.dim_input # np.prod(self.img_size) for images
+    dim_input = data_generator.dim_input # np.prod(self.img_size) for images
 
-    if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'omniglot' or FLAGS.datasource == 'cifarfs':
+    if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
         tf_data_load = True
         num_classes = data_generator.num_classes
 
@@ -298,7 +284,7 @@ def main():
             random.seed(5)
             image_tensor, label_tensor = data_generator.make_data_tensor()
             inputa = tf.slice(image_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1]) # slice(tensor, begin, slice_size)
-            inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1]) # The extra 15 add here?!
+            inputb = tf.slice(image_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1]) # The extra 15 add here
             labela = tf.slice(label_tensor, [0,0,0], [-1,num_classes*FLAGS.update_batch_size, -1])
             labelb = tf.slice(label_tensor, [0,num_classes*FLAGS.update_batch_size, 0], [-1,-1,-1])
             input_tensors = {'inputa': inputa, 'inputb': inputb, 'labela': labela, 'labelb': labelb}
@@ -321,7 +307,7 @@ def main():
     if tf_data_load:
         model.construct_model(input_tensors=metaval_input_tensors, prefix='metaval_')
     
-    # Op to retrieve summaries?
+    # Op to retrieve summaries
     model.summ_op = tf.summary.merge_all()
     
     # keep last 10 copies of trainable variables
