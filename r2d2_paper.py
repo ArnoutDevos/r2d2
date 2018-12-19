@@ -73,17 +73,23 @@ class R2D2_paper:
             self.classification = True
             
             if FLAGS.conv:
-                self.activation = lambda x: tf.nn.leaky_relu(x, alpha=0.1)
-                self.dim_hidden = [96, 192, 384, 512]
+                self.dropout = 0.0
+                if FLAGS.model == 'r2d2':
+                    self.activation = lambda x: tf.nn.leaky_relu(x, alpha=0.1)
+                    self.dim_hidden = [96, 192, 384, 512]
+                    
+                    if FLAGS.datasource == 'miniimagenet':
+                        self.dropout = 0.1
+                    elif FLAGS.datasource == 'cifarfs':
+                        self.dropout = 0.4
+                        
+                elif FLAGS.model == 'maml':
+                    self.activation = tf.nn.relu
+                    self.dim_hidden = [32, 32, 32, 32]
+                
                 self.forward = self.forward_conv
                 self.construct_weights = self.construct_conv_weights
-                
-                if FLAGS.datasource == 'miniimagenet':
-                    self.dropout = 0.1
-                elif FLAGS.datasource == 'cifarfs':
-                    self.dropout = 0.4
-                elif FLAGS.datasource == 'omniglot':
-                    self.dropout = 0.0
+                    
             else:
                 self.dim_hidden = [256, 128, 64, 64]
                 self.forward=self.forward_fc
@@ -126,6 +132,9 @@ class R2D2_paper:
             self.labelb = input_tensors['labelb']
 
         with tf.variable_scope('model', reuse=None) as training_scope:
+            # Use a seed for reproducibility
+            tf.set_random_seed(1)
+            
             if 'weights' in dir(self):
                 # weights were already initialized during some training, reuse those
                 training_scope.reuse_variables()
@@ -283,12 +292,16 @@ class R2D2_paper:
         # RR weights
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
         flat_dim = 51200
-        if FLAGS.datasource == 'miniimagenet':
-            flat_dim = 51200
-        elif FLAGS.datasource == 'cifarfs':
-            flat_dim = 8192
-        elif FLAGS.datasource == 'omniglot':
-            flat_dim = 3968
+        if FLAGS.model == 'maml':
+            if FLAGS.datasource == 'miniimagenet':
+                flat_dim = 4000
+            elif FLAGS.datasource == 'cifarfs':
+                flat_dim = 640
+        else:
+            if FLAGS.datasource == 'miniimagenet':
+                flat_dim = 51200
+            elif FLAGS.datasource == 'cifarfs':
+                flat_dim = 8192
         
         weights['stop_w5'] = tf.get_variable('stop_w5', [flat_dim, self.dim_output], initializer=fc_initializer)
         

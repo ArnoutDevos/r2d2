@@ -63,3 +63,16 @@ python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_b
 
 #### 2 way, 5 shot, RESULT:
 python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPomniglot2way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+MAML model R2D2:
+#### 2 way, 1 shot, RESULT:  78.3 (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPMAMLcifarfs2way1shot/ --num_filters=32 --max_pool=True --model=maml --train=False --test_set=True
+
+#### 2 way, 5 shot, RESULT:  (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPMAMLcifarfs2way5shot/ --num_filters=32 --max_pool=True --model=maml --train=False --test_set=True
+
+#### 2 way, 5 shot, RESULT:  (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPMAMLcifarfs2way1shot/ --num_filters=32 --max_pool=True --model=maml --train=False --test_set=True
+
+#### 5 way, 5 shot, RESULT:  (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPMAMLcifarfs5way5shot/ --num_filters=32 --max_pool=True --model=maml --train=False --test_set=True
