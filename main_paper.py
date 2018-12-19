@@ -1,17 +1,32 @@
 """
 Usage Instructions:
 
-    5-way 1-shot mini imagenet:
-        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet1shot/ --num_filters=32 --max_pool=True
+# R2D2 exact paper
+### miniImagenet
+#### 5 way, 1 shot, backprop everywhere, correct dropout RESULT: 51.7 (20k)
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=20000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPminiimagenet5way1shot/ --num_filters=32 --max_pool=True  
 
-    5-way 5-shot mini imagenet:
-        python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/miniimagenet5shot/ --num_filters=32 --max_pool=True
+#### 5 way, 5 shot, backprop everywhere, correct dropout RESULT: 64.1 (16k)
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=20000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPminiimagenet5way5shot/ --num_filters=32 --max_pool=True  
 
-    5-way 1-shot CIFAR fs:
-        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/cifarfs1shot/ --num_filters=32 --max_pool=True
-        
-    5-way 5-shot CIFAR fs:
-        python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=5 --logdir=logs/cifarfs5shot/ --num_filters=32 --max_pool=True
+#### 2 way, 1 shot, backprop everywhere, correct dropout RESULT: 74.6 ± 2.9%
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=20000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPminiimagenet2way1shot/ --num_filters=32 --max_pool=True  
+
+#### 2 way, 5 shot, backprop everywhere, correct dropout RESULT: 
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=20000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPminiimagenet2way5shot/ --num_filters=32 --max_pool=True  
+
+### CIFAR FS
+#### 5 way, 1 shot, RESULT: 
+python main_paper.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPcifarfs5way1shot/ --num_filters=32 --max_pool=True  
+
+#### 2 way, 1 shot, RESULT: 83.6 (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPcifarfs2way1shot/ --num_filters=32 --max_pool=True  
+
+#### 2 way, 5 shot, RESULT: 89.0 (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPcifarfs2way5shot/ --num_filters=32 --max_pool=True  
+
+#### 5 way, 5 shot, RESULT:
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPcifarfs5way5shot/ --num_filters=32 --max_pool=True 
         
     To run evaluation, use the '--train=False' flag and the '--test_set=True' flag to use the test set.
 
@@ -24,9 +39,7 @@ import random
 import tensorflow as tf
 
 from data_generator import DataGenerator
-#from r2d2 import R2D2
 from r2d2_paper import R2D2_paper
-#from maml import MAML
 from tensorflow.python.platform import flags
 
 FLAGS = flags.FLAGS
@@ -352,7 +365,7 @@ def main():
     resume_itr = 0
     model_file = None
     
-    # Initialize all variables, and 
+    # Initialize all variables
     tf.global_variables_initializer().run()
     # starts threads for all queue runners collected in the graph
     tf.train.start_queue_runners()
