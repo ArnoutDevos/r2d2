@@ -60,6 +60,7 @@ flags.DEFINE_float('update_lr', 1e-3, 'step size alpha for inner gradient update
 flags.DEFINE_integer('num_updates', 1, 'number of inner gradient updates during training.') # 5 inner gradient updates for miniImagenet
 
 ## Model options
+flags.DEFINE_string('model', 'r2d2', 'r2d2 or maml')
 flags.DEFINE_string('norm', 'batch_norm', 'batch_norm, layer_norm, or None')
 flags.DEFINE_integer('num_filters', 64, 'number of filters for conv nets -- 32 for miniimagenet, 64 for omiglot.') # 32 filters for miniImagenet
 flags.DEFINE_bool('conv', True, 'whether or not to use a convolutional network, only applicable in some cases')
@@ -252,24 +253,8 @@ def test(model, saver, sess, exp_string, data_generator, test_num_updates=None):
         writer.writerow(stds)
         writer.writerow(ci95)
 
-def main():
-    if FLAGS.datasource == 'sinusoid':
-        if FLAGS.train:
-            test_num_updates = 5 # During base-testing (and thus meta updating) 5 updates are used
-        else:
-            test_num_updates = 10 # During meta-testing 10 updates are used
-    else:
-        """
-        if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-            if FLAGS.train == True:
-                test_num_updates = 1  # eval on at least one update during training
-            else:
-                test_num_updates = 10 # eval on 10 updates during testing
-        """
-        if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-                test_num_updates = 1 # eval on 10 updates during training and testing
-        else:
-            test_num_updates = 10 # Omniglot gets 10 updates during training AND testing
+def main(): 
+    test_num_updates = 1 # Base learner is linear regression, so only one step required
 
     if FLAGS.train == False:
         orig_meta_batch_size = FLAGS.meta_batch_size

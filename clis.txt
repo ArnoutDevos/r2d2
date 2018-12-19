@@ -1,3 +1,7 @@
+path: /data/ML2018/EPFML/project2/src/r2d2
+
+remove ipython checkpoints: rm -rf `find -type d -name .ipynb_checkpoints`
+
 ## R2D2 ##
 ### miniImagenet
 #### 5 way, 5 shot, RESULT: 59.5 ± 0.9%
@@ -17,10 +21,45 @@ python main.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_bat
 python main.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --num_updates=1 --num_classes=2 --logdir=logs/cifarfs2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
 
 
-#R2D2 exact paper
-
+# R2D2 exact paper
+### miniImagenet
 #### 5 way, 1 shot, RESULT: 47.6
 python main_paper.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperminiimagenet5way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
 
-#### 5 way, 1 shot, backprop everywhere, correct dropout RESULT:
+#### 5 way, 1 shot, backprop everywhere, correct dropout RESULT: 51.7 (20k)
 python main_paper.py --datasource=miniimagenet --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPminiimagenet5way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 5 way, 5 shot, backprop everywhere, correct dropout RESULT: 64.1 (16k)
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPminiimagenet5way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 1 shot, backprop everywhere, correct dropout RESULT: 74.6 ± 2.9%
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPminiimagenet2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 5 shot, backprop everywhere, correct dropout RESULT: 
+python main_paper.py --datasource=miniimagenet --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPminiimagenet2way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+### CIFAR FS
+#### 5 way, 1 shot, RESULT: 
+python main_paper.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPcifarfs5way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 1 shot, RESULT: 83.6 (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=60000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPcifarfs2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 5 shot, RESULT: 89.0 (20k)
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPcifarfs2way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 5 way, 5 shot, RESULT:
+python main_paper.py --datasource=cifarfs --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPcifarfs5way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+### Omniglot
+#### 5 way, 1 shot, RESULT: 
+python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPomniglot5way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 5 way, 5 shot, RESULT:
+python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=5 --logdir=logs/paperFullBPomniglot5way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 1 shot, RESULT:
+python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=1 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPomniglot2way1shot/ --num_filters=32 --max_pool=True --train=False --test_set=True
+
+#### 2 way, 5 shot, RESULT:
+python main_paper.py --datasource=omniglot --metatrain_iterations=30000 --meta_batch_size=4 --update_batch_size=5 --update_lr=0.01 --meta_lr=0.005 --num_updates=1 --num_classes=2 --logdir=logs/paperFullBPomniglot2way5shot/ --num_filters=32 --max_pool=True --train=False --test_set=True

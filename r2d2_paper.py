@@ -1,4 +1,4 @@
-""" Code for the MAML algorithm and network definitions. """
+""" Code for the R2D2 algorithm and network definitions. """
 from __future__ import print_function
 import numpy as np
 import sys
@@ -15,10 +15,48 @@ from utils import mse, xent, conv_block, normalize
 FLAGS = flags.FLAGS
 
 class R2D2_paper:
-    def __init__(self, dim_input=1, dim_output=1, test_num_updates=5):
-        #tf.reset_default_graph()
+    """This class implements the R2D2 algorithm as proposed in "Meta-learning with differentiable closed-form solvers"
+
+    Attributes:
+        dim_input:          An integer equal to the (flattened) input size
+        dim_hidden:         A list of integers which contains the number of (output) channels in each layer
+        dim_output:         An integer equal to the (flattened) output size
+        img_size:           An integer equal to the length of one side of a square image
         
-        """ must call construct_model() after initializing MAML! """
+        classification:     A boolean representing whether a classification is being carried out or not
+        construct_weights:  A function that constructs the weights for the model to be used
+        forward:            A function that defines the TensorFlow structure for a forward pass, building on the weights from construct_weights
+        loss_func:          Loss function to be used, xent = cross entropy for classification, mse = mean squared error for regression
+        
+        update_lr:          A float for the base learning learning rate
+        meta_lr:            A float for the meta learning rate, is part of the TensorFlow graph and can thus be modified when feeding
+        test_num_updates:   An integer equal to the amount of finetuning steps that should be taken during training and testing
+        
+        activation:         Activation function to be used in the neural layers
+        dropout:            A float signifying the percentage of neurons to be dropped out
+        channels:           An integer equal to the number of channels in the input (image)
+    """
+    def __init__(self, dim_input=1, dim_output=1, test_num_updates=5):
+        """Inits an R2D2 model
+        
+        Most attributes for this class are determined based on the
+        arguments passed through the FLAGS.
+        
+        Currently this class supports the following datasets:
+        miniImagenet, CIFAR-FS
+        
+        After initialization the function construct_model() should
+        always be called. This is required before the TensorFlow graph
+        can be feeded with data and operations can be executed.
+        
+        Args:
+            dim_input:          An integer equal to the (flattened) input size
+            dim_output:         An integer equal to the (flattened) output size
+            test_num_updates:   An integer equal to the amount of finetuning steps that should be taken during training and testing
+
+        Raises:
+            ValueError: The dataset specified has no implementation
+        """
         self.dim_input = dim_input
         self.dim_output = dim_output
         self.update_lr = FLAGS.update_lr
@@ -31,7 +69,6 @@ class R2D2_paper:
             self.forward = self.forward_fc
             self.construct_weights = self.construct_fc_weights
         elif FLAGS.datasource == 'omniglot' or FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
-            self.dropout = 0.1
             self.loss_func = xent
             self.classification = True
             
@@ -40,6 +77,13 @@ class R2D2_paper:
                 self.dim_hidden = [96, 192, 384, 512]
                 self.forward = self.forward_conv
                 self.construct_weights = self.construct_conv_weights
+                
+                if FLAGS.datasource == 'miniimagenet':
+                    self.dropout = 0.1
+                elif FLAGS.datasource == 'cifarfs':
+                    self.dropout = 0.4
+                elif FLAGS.datasource == 'omniglot':
+                    self.dropout = 0.0
             else:
                 self.dim_hidden = [256, 128, 64, 64]
                 self.forward=self.forward_fc
@@ -57,6 +101,16 @@ class R2D2_paper:
             raise ValueError('Unrecognized data source.')
 
     def construct_model(self, input_tensors=None, prefix='metatrain_'):
+        """Constructs the TensorFlow graph, and defines operations
+        
+        This function contains the meta-learning model in TensorFlow,
+        and its operation definitions. Refer to the paper for algorithm
+        details.
+        
+        Args:
+            input_tensors:      tensorflow queues with inputs for base-training (a), and inputs for meta-training (b). Not required.
+            prefix:             string with values {'metatrain_','metaval_'} to a model for training or evaluation respectively
+        """
         # This function constructs the model, and defines the ops. The ops are not called yet! That happens in session.run(...)
         
         # a: training data for inner gradient, b: test data for meta gradient
@@ -100,6 +154,7 @@ class R2D2_paper:
                 task_outputa = self.forward(inputa, weights, reuse=reuse)  # only reuse on the first iter
                 task_lossa = self.loss_func(task_outputa, labela)
                 
+                # FINE TUNING/BASE LEARNING HAPPENS HERE
                 ## Pass through CNN
                 x = self.forward_conv_CNN(inputa, weights, reuse=True)                
                 
@@ -124,25 +179,6 @@ class R2D2_paper:
                 task_outputbs.append(output)
                 task_lossesb.append(self.loss_func(output, labelb))
                 
-                # NO (further) INNER STEPS REQUIRED FOR LINEAR REGRESSION
-                """
-                for j in range(num_updates - 1):
-                    loss = self.loss_func(self.forward(inputa, fast_weights, reuse=True), labela)
-                    
-                    # MAML line 5: evaluate grads on train set (a)
-                    grads = tf.gradients(loss, list(fast_weights.values()))
-                    if FLAGS.stop_grad:
-                        grads = [tf.stop_gradient(grad) for grad in grads]
-                    gradients = dict(zip(fast_weights.keys(), grads))
-                    
-                    # MAML line 6: compute updates (adapted parameters)
-                    fast_weights = dict(zip(fast_weights.keys(), [fast_weights[key] - self.update_lr*gradients[key] for key in fast_weights.keys()]))
-                    
-                    # MAML line 8: calculate output/loss on test set (b)
-                    output = self.forward(inputb, fast_weights, reuse=True)
-                    task_outputbs.append(output)
-                    task_lossesb.append(self.loss_func(output, labelb))
-                """
                 task_output = [task_outputa, task_outputbs, task_lossa, task_lossesb]
 
                 if self.classification:
@@ -170,6 +206,11 @@ class R2D2_paper:
 
         ## Performance & Optimization
         if 'train' in prefix:
+        """
+        Training
+        
+        1. the losses on the base-train, and base-test
+        """
             self.total_loss1 = total_loss1 = tf.reduce_sum(lossesa) / tf.to_float(FLAGS.meta_batch_size)
             self.total_losses2 = total_losses2 = [tf.reduce_sum(lossesb[j]) / tf.to_float(FLAGS.meta_batch_size) for j in range(num_updates)]
             # after the map_fn
@@ -254,14 +295,14 @@ class R2D2_paper:
         
         # RR weights
         # assumes max pooling, flat_dim is concatenated flattened output of layer 3 and 4
-        flat_dim = 640
+        flat_dim = 51200
         if FLAGS.datasource == 'miniimagenet': # 84x84 * (1/2 + 1/2/2/2)
             flat_dim = 51200
-        else:# cifarfs 32x32 * (1/2 + 1/2/2/2) = 640
-            flat_dim = 640 
-        
-        
-        
+        elif FLAGS.datasource == 'cifarfs':# cifarfs 32x32 * (1/2 + 1/2/2/2) = 640
+            flat_dim = 8192
+        elif FLAGS.datasource == 'omniglot':
+            flat_dim = 3968
+
         weights['stop_w5'] = tf.get_variable('stop_w5', [flat_dim, self.dim_output], initializer=fc_initializer)
         
         # hyper parameters of base learner, to be learnt in outer loop together with CNN parameters
@@ -299,8 +340,15 @@ class R2D2_paper:
         hidden4 = tf.layers.dropout(hidden4, rate=self.dropout, training=is_training)
         
         # Flattening of blocks 3 and 4
+        #if FLAGS.datasource == 'miniimagenet' or FLAGS.datasource == 'cifarfs':
+            # last hidden layer is 6x6x64-ish, reshape to a vector
+            #hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
         hidden3 = tf.reshape(hidden3, [-1, np.prod([int(dim) for dim in hidden3.get_shape()[1:]])])
         hidden4 = tf.reshape(hidden4, [-1, np.prod([int(dim) for dim in hidden4.get_shape()[1:]])])
+        #elif FLAGS.datasource == 'omniglot':# omniglot
+        #    hidden3 = tf.reduce_mean(hidden3, [1, 2])
+        #   hidden4 = tf.reduce_mean(hidden4, [1, 2])
+        
         
         # Concatenate 
         flatconcat34 = tf.concat([hidden3, hidden4], axis=1) # keep batched (axis 0), concatenate columns (axis 1)
