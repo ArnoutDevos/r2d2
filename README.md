@@ -20,7 +20,7 @@ After around 20,000 (20k) iterations, with a 95% confidence interval:
 | Dataset, method | this code<br />MAML model<br />accuracy | this code<br />R2D2 model<br />accuracy | reported by<br /> R2D2 [2] |
 | ------------- | :---------------------: | :-----------: | :-----------: |
 | CIFAR-FS, R2D2 5-way, 1-shot | 54.3 ± 1.8% | 60.2 ± 1.8% |65.3 ± 0.2% |
-| CIFAR-FS, R2D2 5-way, 5-shot | 69.7 ± 0.9% | 70.6 ± 0.9% |79.4 ± 0.1% |
+| CIFAR-FS, R2D2 5-way, 5-shot | 69.7 ± 0.9% | 70.6 ± 0.9% (60k) |79.4 ± 0.1% |
 | CIFAR-FS, R2D2 2-way, 1-shot |  78.3 ± 2.8% | 83.6 ± 2.6% |83.4 ± 0.3% |
 | CIFAR-FS, R2D2 2-way, 5-shot |  87.7 ± 1.1% | 89.0 ± 1.0% |91.1 ± 0.2% |
 | miniImagenet, R2D2 5-way, 1-shot | 45.7 ± 1.8%  | 51.7 ± 1.8% | 51.5 ± 0.2%  |
