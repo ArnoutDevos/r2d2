@@ -1,6 +1,6 @@
 # Meta-learning with differentiable closed-form solvers
 
-This repo implements the paper "Meta-learning with differentiable closed-form solvers" [1] in TensorFlow. It builds on code from MAML ([link](https://github.com/cbfinn/maml)) [2].
+This repo implements the paper "Meta-learning with differentiable closed-form solvers" [1] in TensorFlow. It builds on code from MAML ([link](https://github.com/cbfinn/maml)) [2]. A report detailing the reproducibility work and discussing implementation details can be found [here](https://openreview.net/forum?id=BJx0N2I6IN).
 
 ### Dependencies
 This code requires the following:
@@ -27,6 +27,15 @@ After 60,000 (60k) iterations, with a 95% confidence interval:
 | miniImagenet, R2D2 5-way, 5-shot | 63.1 ± 0.9%  | 66.2 ± 0.9% |68.8 ± 0.2%  |
 | miniImagenet, R2D2 2-way, 1-shot | 77.3 ± 2.8% | 79.5 ± 2.6% | 76.7 ± 0.3%  |
 | miniImagenet, R2D2 2-way, 5-shot | 85.4 ± 1.1% | 87.3 ± 1.1% | 86.8 ± 0.2%  |
+
+### Cite this work
+If you use (part of) this code or work, please cite the following work:
+```
+@article{devosreproducing,
+  title={Reproducing Meta-learning with differentiable closed-form solvers},
+  author={Devos, Arnout and Chatel, Sylvain and Grossglauser, Matthias}
+}
+```
 
 ### References
 
