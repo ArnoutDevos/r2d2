@@ -13,7 +13,7 @@ For the Omniglot, MiniImagenet and CIFAR-FS data, see the usage instructions in 
 ### Usage
 To run the code, see the usage instructions at the top of `main.py`.
 
-### Results
+### Results (updated)
 
 After 60,000 (60k) iterations, with a 95% confidence interval:
 
