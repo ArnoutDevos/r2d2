@@ -35,7 +35,10 @@ If you use (part of) this code or work, please cite the following work:
 ```
 @article{devosreproducing,
   title={Reproducing Meta-learning with differentiable closed-form solvers},
-  author={Devos, Arnout and Chatel, Sylvain and Grossglauser, Matthias}
+  author={Devos, Arnout and Chatel, Sylvain and Grossglauser, Matthias},
+  booktitle={International Conference on Learning Representations},
+  year={2019},
+  url={https://openreview.net/forum?id=BJx0N2I6IN},
 }
 ```
 
