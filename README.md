@@ -2,7 +2,7 @@
 
 This repo implements the paper "Meta-learning with differentiable closed-form solvers" [1] in TensorFlow. It builds on code from MAML ([link](https://github.com/cbfinn/maml)) [2].
 
-A report detailing the reproducibility work and discussing implementation details can be found [here](https://openreview.net/forum?id=BJx0N2I6IN).
+A paper with a reproducible explanation of implementation details can be found [here](https://openreview.net/forum?id=BJx0N2I6IN) (oral presentation @ ICLR 2019 RML).
 
 ### Dependencies
 This code requires the following:
