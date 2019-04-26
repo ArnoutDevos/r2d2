@@ -30,6 +30,8 @@ After 60,000 (60k) iterations, with a 95% confidence interval:
 | miniImagenet, R2D2 2-way, 1-shot | 77.3 ± 2.8% | 79.5 ± 2.6% | 76.7 ± 0.3%  |
 | miniImagenet, R2D2 2-way, 5-shot | 85.4 ± 1.1% | 87.3 ± 1.1% | 86.8 ± 0.2%  |
 
+![R2D2 results](https://i.ibb.co/FY4CFn0/Screen-Shot-2019-04-26-at-14-28-51.png)
+
 ### Cite this work
 If you use (part of) this code or work, please cite the following work:
 ```
