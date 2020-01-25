@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/161198069.svg)](https://zenodo.org/badge/latestdoi/161198069)
+[![DOI](https://zenodo.org/badge/161198069.svg)](https://zenodo.org/badge/latestdoi/161198069) [![HitCount](http://hits.dwyl.io/ArnoutDevos/https://githubcom/ArnoutDevos/r2d2.svg)](http://hits.dwyl.io/ArnoutDevos/https://githubcom/ArnoutDevos/r2d2)
 # Meta-learning with differentiable closed-form solvers
 
 This repo implements the paper "Meta-learning with differentiable closed-form solvers" [1] in TensorFlow. It builds on code from MAML ([link](https://github.com/cbfinn/maml)) [2].
